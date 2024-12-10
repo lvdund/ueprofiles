@@ -1,0 +1,76 @@
+{
+	"db": {
+		"url": "mongodb://localhost:27017",
+		"name": "webue_db",
+		"auth": "ue_profiles",
+		"am": "amsub",
+		"smsel": "smselsub",
+		"sessman": "sessmansub",
+		"mock": false
+	},
+	"ues": 50,
+	"plmnid" : {
+		"mcc": "208",
+		"mnc":"93"
+	},
+	"profiles":[
+		{
+			"scheme": "1",
+			"prvkey":       "c53c22208b61860b06c62e5406a7b330c2b577aa5558981510d128247d38bd1d",
+			"pubkey":        "5a8d38864820197c3394b92613b20b91633cbd897119273bf8e4a6f4eec0a650"
+		},
+		{
+			"scheme": "2",
+			"prvkey":       "F1AB1074477EBCC7F554EA1C5FC368B1616730155E0041AC447D6301975FECDA",
+			"pubkey":        "0272DA71976234CE833A6907425867B82E074D44EF907DFB4B3E21C1C2256EBCD1"
+		}
+	],
+	"amf" : "8000",
+
+	"configured-nssai": [{
+		"sst" : 1,
+		"sd": "0x010203"
+	}],
+	"default-nssai": [{
+		"sst" : 1,
+		"sd": "0x010203"
+	}],
+	"gnbSearchList": [
+		"10.0.0.2"
+	],
+	"uacAic": {
+		"mps": false,
+		"mcs": false
+	},
+	"uacAcc": {
+		"normalClass": 0,
+		"class11": false,
+		"class12": false,
+		"class13": false,
+		"class14": false,
+		"class15": false
+	},
+
+	"sessions": [{
+		"type": "IPv4",
+		"apn": "internet",
+		"slice": {
+				"sst": 1,
+				"sd": "0x010203"
+		}
+	}],
+	"intergrity": {
+		"IA1": true,
+		"IA2": true,
+		"IA3": true
+	},
+	"ciphering": {
+		"IA1": true,
+		"IA2": true,
+		"IA3": true
+	},
+	"integrityMaxRate": {
+		"uplink": "full",
+		"downlink": "full"
+	}
+}
