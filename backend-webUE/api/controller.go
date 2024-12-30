@@ -73,7 +73,9 @@ func (api *UeProfileAPI) generateUeProfiles(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message":     "UE profiles generated",
 		"ue_profiles": ueProfiles,
+		"yaml_file":   ueProfiles, // Add this to inform users about the file location
 	})
+
 }
 
 // Create multiple UE profiles
@@ -97,7 +99,11 @@ func (api *UeProfileAPI) createUeProfiles(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "UE profiles created"})
+	c.JSON(http.StatusCreated, gin.H{
+		"message":   "UE profiles created",
+		"yaml_file": ueProfiles, // Add this to inform users about the file location
+	})
+
 }
 
 // Get a list of all UE profiles

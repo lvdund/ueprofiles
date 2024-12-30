@@ -41,6 +41,12 @@ func (s *UeProfileService) GenerateUeProfiles(ctx context.Context, userID primit
 
 		ueProfiles = append(ueProfiles, *ueProfile)
 		docs = append(docs, ueProfile)
+
+		// Export each profile to YAML
+		yamlPath := fmt.Sprintf("./uegen/%s.yaml", ueProfile.Supi)
+		if err := utils.ExportYAML(yamlPath, ueProfile); err != nil {
+			fmt.Printf("Failed to export UE profile to YAML: %v\n", err)
+		}
 	}
 
 	// Check if no valid UE profiles were generated
@@ -53,6 +59,7 @@ func (s *UeProfileService) GenerateUeProfiles(ctx context.Context, userID primit
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert UE profiles: %v", err)
 	}
+
 	return ueProfiles, nil
 }
 
@@ -69,6 +76,12 @@ func (s *UeProfileService) CreateUeProfiles(ctx context.Context, userID primitiv
 	var docs []interface{}
 	for _, profile := range ueProfiles {
 		docs = append(docs, profile)
+
+		// Export each profile to YAML
+		yamlPath := fmt.Sprintf("./uegen/%s.yaml", profile.Supi)
+		if err := utils.ExportYAML(yamlPath, profile); err != nil {
+			fmt.Printf("Failed to export UE profile to YAML: %v\n", err)
+		}
 	}
 
 	// Use InsertMany for batch insertion
@@ -76,6 +89,7 @@ func (s *UeProfileService) CreateUeProfiles(ctx context.Context, userID primitiv
 	if err != nil {
 		return fmt.Errorf("failed to insert UE profiles: %v", err)
 	}
+
 	return nil
 }
 
@@ -155,4 +169,8 @@ func (s *UeProfileService) DeleteUeProfile(ctx context.Context, userID primitive
 		return fmt.Errorf("UE profile not found")
 	}
 	return nil
+}
+
+func buildYAMLFilename(userID primitive.ObjectID, suffix string) string {
+	return fmt.Sprintf("ueprofiles_%s_%s.yaml", userID.Hex(), suffix)
 }

@@ -1,0 +1,61 @@
+id: "000000000000000000000000"
+userid: 67728408205be8ee08276fba
+supi: imsi-208938062096269
+suci: suci-0-208-93-0-1-1-5a8d38864820197c3394b92613b20b91633cbd897119273bf8e4a6f4eec0a650-88770370c93de9d26c150b31eb6106bc86926489ff98f9c768d247e2f5d08f4379259c4e5ffaa369a421486213
+plmnid:
+    mcc: "208"
+    mnc: "93"
+configuredslice:
+    - sst: 1
+      sd: "010203"
+defaultslice:
+    - sst: 1
+      sd: "010203"
+routingindicator: "0000"
+homenetworkprivatekey: a80d3ca872d6db6b9e082428dd7cbd735de4a059e67034e274bd0043da652546
+homenetworkpublickey: 5a8d38864820197c3394b92613b20b91633cbd897119273bf8e4a6f4eec0a650
+homenetworkpublickeyid: 1
+protectionscheme: 1
+key: 2bd90440238cd27b08fdd811d3e0190f
+keypair: {}
+op: 466555176c3e88f24f6133db2435e118
+optype: OPC
+amf: "8000"
+imei: "560742345178526"
+imeisv: "0502229838440872"
+gnbsearchlist:
+    - 10.0.0.2
+integrity:
+    ia1: true
+    ia2: true
+    ia3: true
+ciphering:
+    ea1: true
+    ea2: true
+    ea3: true
+profiles:
+    - scheme: 1
+      privatekey: c53c22208b61860b06c62e5406a7b330c2b577aa5558981510d128247d38bd1d
+      publickey: 5a8d38864820197c3394b92613b20b91633cbd897119273bf8e4a6f4eec0a650
+    - scheme: 2
+      privatekey: F1AB1074477EBCC7F554EA1C5FC368B1616730155E0041AC447D6301975FECDA
+      publickey: 0272DA71976234CE833A6907425867B82E074D44EF907DFB4B3E21C1C2256EBCD1
+uacaic:
+    mps: false
+    mcs: false
+uacacc:
+    normalclass: 0
+    class11: false
+    class12: false
+    class13: false
+    class14: false
+    class15: false
+sessions:
+    - type: IPv4
+      apn: internet
+      slice:
+        sst: 1
+        sd: "0x010203"
+integritymaxrate:
+    uplink: full
+    downlink: full
