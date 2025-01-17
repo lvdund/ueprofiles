@@ -79,18 +79,35 @@ npm start
 
 ## Step 2: Test the functionality of the website
 1. Register
+![Screenshot from 2025-01-17 11-05-02](https://github.com/user-attachments/assets/ce308033-8002-4c0d-ac99-b169d363f501)
 
 2. Login
+![Screenshot from 2025-01-17 11-05-40](https://github.com/user-attachments/assets/a2b33b0f-f1bf-4d27-ab6b-3c7110b6231d)
 
 3. Generate UE Profile automatically
+![Screenshot from 2025-01-17 11-06-34](https://github.com/user-attachments/assets/df647afb-7027-4466-a98b-079bb6863fb8)
 
-4. See a list or each of UE Profile Form
+![Screenshot from 2025-01-17 11-06-44](https://github.com/user-attachments/assets/2abddde2-ded2-427b-95e0-413be53f21c3)
 
-5. Update UE Profile
+5. See a list or each of UE Profile Form
+![Screenshot from 2025-01-17 11-06-52](https://github.com/user-attachments/assets/042841ef-bbdc-4e5f-94f2-45babd35b05c)
 
-6. Delete UE Profile
+![Screenshot from 2025-01-17 11-07-56](https://github.com/user-attachments/assets/fed48fb6-323b-4389-bbb6-eea71910f149)
 
-7. Logout
+7. Update UE Profile
+![Screenshot from 2025-01-17 11-08-43](https://github.com/user-attachments/assets/a8c44957-4c4a-4ab8-a206-e41a09898538)
+
+![Screenshot from 2025-01-17 11-08-49](https://github.com/user-attachments/assets/e6836d66-a577-4190-a8a7-3b644732b0d1)
+
+9. Delete UE Profile
+![Screenshot from 2025-01-17 11-09-00](https://github.com/user-attachments/assets/8c015bb6-22ed-45cd-9213-94f4df7eeb31)
+![Screenshot from 2025-01-17 11-09-09](https://github.com/user-attachments/assets/3995d164-f2c1-4810-a6a3-9db413198074)
+
+10. Search UE Profile by SUPI
+![Screenshot from 2025-01-17 11-09-26](https://github.com/user-attachments/assets/534b2a96-3660-4a15-9d83-579bc7bddc76)
+
+11. Logout
+![Screenshot from 2025-01-17 11-09-33](https://github.com/user-attachments/assets/540cc7ae-13fd-4b65-bd27-655be0b47605)
 
 ## Step 3: Explain each field of UE Profile
 1. IMSI: The IMSI (International Mobile Subscriber Identity) of the UE, including MCC (Mobile Country Code), MNC (Mobile Network Code), and MSISDN (mobile phone number). It is used to uniquely identify the UE in the mobile network.
@@ -144,3 +161,17 @@ This specifies the UAC access control class, determining whether the user has ac
          normalClass: A value of 0 indicates the user belongs to the normal access class.
 
          class11 - class15: False values indicate the user does not belong to any special priority access classes (class 11-15).
+
+12. sessions:
+PDU Sessions: Configuration of data sessions (PDU sessions) for the UE, in this case, an IPv4 session.
+Purpose: Specifies the session type, Access Point Name (APN), and network slice (S-NSSAI) the UE connects to.
+
+13. configured-nssai and default-nssai:
+NSSAI (Network Slice Selection Assistance Information): Information for selecting network slices for the UE.
+Purpose: Specifies preconfigured or default network slices for the UE.
+
+14. integrity and ciphering:
+Supported Integrity Algorithms and Ciphering Algorithms: The security and encryption algorithms supported by the UE.
+
+15. integrityMaxRate:
+Maximum Integrity Protection Rate: Defines the maximum integrity protection for uplink and downlink user data.
