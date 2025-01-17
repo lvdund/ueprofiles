@@ -1,3 +1,4 @@
+// supi-key/ec.go
 package supi
 
 import (
@@ -19,13 +20,15 @@ import (
 	"maze.io/x/crypto/x25519"
 )
 
-var log *logrus.Entry
+var log = logrus.New()
 
-/*func intToU32BE(n uint32) []byte {
-	result := make([]byte, 4)
-	binary.BigEndian.PutUint32(result, n)
-	return result
-}*/
+func init() {
+	// Configure logger
+	log.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
+	log.SetLevel(logrus.InfoLevel)
+}
 
 const (
 	ProfileAMacKeyLen = 32 // octets
@@ -117,16 +120,12 @@ func (x *X25519) GetPrivKey() []byte {
 }
 
 func (x *X25519) GenerateSharedKey(hnPubKey []byte) ([]byte, error) {
-	/*
-	   generate_sharedkey - get the shared key
-	*/
-	var encryptSharedKey []byte
-	if encryptSharedKeyTmp, err := curve25519.X25519(x.privKey, hnPubKey); err != nil {
-		log.Printf("X25519 error: %+v", err)
-	} else {
-		encryptSharedKey = encryptSharedKeyTmp
+	sharedKeyTmp, err := curve25519.X25519(x.privKey, hnPubKey)
+	if err != nil {
+		log.Errorf("X25519 error: %+v", err)
+		return nil, err
 	}
-	return encryptSharedKey, nil
+	return sharedKeyTmp, nil
 }
 
 func checkOnCurve(curve elliptic.Curve, x, y *big.Int) error {
@@ -273,11 +272,8 @@ func KDF(sharedKey, publicKey []byte, profileEncKeyLen, profileMacKeyLen, profil
 	for i := 1; i <= kdfRounds; i++ {
 		counterBytes := make([]byte, 4)
 		binary.BigEndian.PutUint32(counterBytes, counter)
-		// fmt.Printf("counterBytes: %x\n", counterBytes)
 		tmpK := sha256.Sum256(append(append(sharedKey, counterBytes...), publicKey...))
-		sliceK := tmpK[:]
-		kdfKey = append(kdfKey, sliceK...)
-		// fmt.Printf("kdfKey in round %d: %x\n", i, kdfKey)
+		kdfKey = append(kdfKey, tmpK[:]...)
 		counter++
 	}
 	return kdfKey
@@ -298,9 +294,6 @@ func HmacSha256(input, mackey []byte, maclen int) (tag []byte, err error) {
 }
 
 func Aes128ctr(input, encKey, icb []byte) []byte {
-	/*
-		Using the AES-128 algorithm to encrypt SUPI into SUCI.
-	*/
 	output := make([]byte, len(input))
 	block, err := aes.NewCipher(encKey)
 	if err != nil {
@@ -308,7 +301,6 @@ func Aes128ctr(input, encKey, icb []byte) []byte {
 	}
 	stream := cipher.NewCTR(block, icb)
 	stream.XORKeyStream(output, input)
-	// fmt.Printf("aes input: %x %x %x\naes output: %x\n", input, encKey, icb, output)
 	return output
 }
 
@@ -352,30 +344,43 @@ func NewSecp256r1(loc_privKey string) EllipticCurve {
 	return x
 }
 
-func encode_supi(profile string, stringHnPubKey string, ephprivKey string, msinString string) string {
+func encode_supi(profile string, stringHnPubKey string, ephprivKey string, msinString string) (string, error) {
 	var a EllipticCurve
 	if profile == "A" {
 		a = NewX25519(ephprivKey)
 	} else {
 		a = NewSecp256r1(ephprivKey)
 	}
-	hnPubKey, _ := hex.DecodeString(stringHnPubKey)
-	msin, _ := hex.DecodeString(msinString)
+
+	hnPubKey, err := hex.DecodeString(stringHnPubKey)
+	if err != nil {
+		log.Errorf("DecodeString error: %+v", err)
+		return "", err
+	}
+
+	msin, err := hex.DecodeString(msinString)
+	if err != nil {
+		log.Errorf("DecodeString error: %+v", err)
+		return "", err
+	}
+
 	pubKey := hex.EncodeToString(a.GetPubKey())
-	//fmt.Println(pubKey)
-	sharedKey, _ := a.GenerateSharedKey(hnPubKey)
-	//fmt.Printf("Shared Key: %x\n", sharedKey)
+
+	sharedKey, err := a.GenerateSharedKey(hnPubKey)
+	if err != nil {
+		log.Errorf("GenerateSharedKey error: %+v", err)
+		return "", err
+	}
+
 	kdf_key := KDF(sharedKey, a.GetPubKey(), ProfileAEncKeyLen, ProfileAMacKeyLen, ProfileAHashLen)
-	//fmt.Println("KDF Key: ", hex.EncodeToString(kdf_key))
 	suci_bytes, macTag_UE_bytes := protect(msin, kdf_key)
-	//publickey_hex := fmt.Sprintf("%x", publicKeyue)
-	//fmt.Println("PublickeyUE:     ",publickey_hex)
+
 	suci := hex.EncodeToString(suci_bytes)
 	macTag_UE := hex.EncodeToString(macTag_UE_bytes)
-	return pubKey + suci + macTag_UE
+
+	return pubKey + suci + macTag_UE, nil
 }
 
-func Supi2Suci(profile string, stringHnPubKey string, ephprivKey string, msinString string) (suci string) {
-	suci = encode_supi(profile, stringHnPubKey, ephprivKey, msinString)
-	return
+func Supi2Suci(profile string, stringHnPubKey string, ephprivKey string, msinString string) (string, error) {
+	return encode_supi(profile, stringHnPubKey, ephprivKey, msinString)
 }

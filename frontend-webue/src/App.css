@@ -36,3 +36,21 @@
     transform: rotate(360deg);
   }
 }
+
+
+/* Customize button sizes */
+.btn-sm {
+  font-size: 0.875rem;
+}
+
+/*Add margin to forms */
+.form-control {
+  margin-bottom: 1rem;
+}
+
+/*Style the card headers */
+.card-title {
+  color: #007bff;
+}
+
+

@@ -1,16 +1,17 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Container, Row, Col } from 'react-bootstrap';
 import UEProfileList from '../components/UEProfiles/UEProfileList';
 
 function Dashboard() {
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <Routes>
-        <Route path="/" element={<UEProfileList />} />
-        {/* Maybe add some data to here */}
-      </Routes>
-    </div>
+    <Container fluid className="mt-4">
+      <Row>
+        <Col>
+          <h1 className="mb-4">Dashboard</h1>
+          <UEProfileList />
+        </Col>
+      </Row>
+    </Container>
   );
 }
 

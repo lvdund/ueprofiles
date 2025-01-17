@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from '../../api';
-import { getToken } from '../../utils/auth';
 import UEProfileItem from './UEProfileItem';
-import UEProfileForm from './UEProfileForm';
+import { getToken } from '../../utils/auth';
+import GenerateUEProfileForm from './GenerateUEProfileForm';
+import { toast } from 'react-toastify';
+import { Button, InputGroup, FormControl, Row, Col, Card } from 'react-bootstrap';
 
 function UEProfileList() {
   const [profiles, setProfiles] = useState([]);
   const [filteredProfiles, setFilteredProfiles] = useState([]);
-  const [editingProfile, setEditingProfile] = useState(null);
   const [searchSUPI, setSearchSUPI] = useState('');
-  const [token] = useState(getToken());
+  const [showGenerateForm, setShowGenerateForm] = useState(false);
+  const token = getToken();
 
-  // **1. Memoize fetchProfiles using useCallback**
+  // Hàm lấy danh sách UE Profiles
   const fetchProfiles = useCallback(async () => {
     try {
       const response = await axios.get('/ue_profiles', {
@@ -20,70 +22,43 @@ function UEProfileList() {
         },
       });
       const data = response.data;
-      // Assume profiles are sorted by creation time descending
       setProfiles(Array.isArray(data) ? data : []);
       setFilteredProfiles(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error fetching profiles', error);
+      console.error('Error fetching profiles:', error);
       setProfiles([]);
       setFilteredProfiles([]);
+      toast.error('Error fetching UE Profiles.');
     }
   }, [token]);
 
-  // **2. Include fetchProfiles in useEffect dependencies**
   useEffect(() => {
     fetchProfiles();
   }, [fetchProfiles]);
 
-  const handleEdit = (profile) => {
-    setEditingProfile(profile);
-  };
-
+  // Hàm xóa UE Profile
   const handleDelete = async (supi) => {
-    if (window.confirm('Are you sure you want to delete this UE Profile?')) {
-      try {
-        await axios.delete(`/ue_profiles/${supi}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        fetchProfiles();
-      } catch (error) {
-        console.error('Error deleting profile', error);
-      }
+    try {
+      await axios.delete(`/ue_profiles/${supi}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      fetchProfiles();
+      toast.success('UE Profile deleted successfully.');
+    } catch (error) {
+      console.error('Error deleting profile:', error);
+      toast.error('Error deleting UE Profile.');
     }
   };
 
-  const handleGenerate = async () => {
-    const numUes = prompt('Enter the number of UE profiles to generate:', '1');
-    if (numUes && !isNaN(numUes)) {
-      try {
-        await axios.post(
-          '/ue_profiles/generate',
-          { num_ues: parseInt(numUes, 10) },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        fetchProfiles();
-      } catch (error) {
-        console.error('Error generating profiles', error);
-      }
-    } else {
-      alert('Please enter a valid number.');
-    }
-  };
-
+  // Hàm xử lý thay đổi tìm kiếm
   const handleSearchChange = (e) => {
     const supi = e.target.value;
     setSearchSUPI(supi);
     if (supi === '') {
-      // If search is empty, show all profiles
       setFilteredProfiles(profiles);
     } else {
-      // Filter profiles by SUPI
       const filtered = profiles.filter((profile) =>
         profile.supi.toLowerCase().includes(supi.toLowerCase())
       );
@@ -91,16 +66,7 @@ function UEProfileList() {
     }
   };
 
-  const handleCreate = () => {
-    // Reset editingProfile to an empty object to create a new profile
-    setEditingProfile({});
-  };
-
-  const handleFormClose = () => {
-    setEditingProfile(null);
-  };
-
-  // Function to group profiles by creation date
+  // Hàm nhóm UE Profiles theo ngày tạo 
   const groupProfilesByDate = (profilesList) => {
     const grouped = profilesList.reduce((groups, profile) => {
       let date = 'Unknown Date';
@@ -119,42 +85,57 @@ function UEProfileList() {
     return grouped;
   };
 
-  // Get grouped profiles
   const groupedProfiles = groupProfilesByDate(filteredProfiles);
 
   return (
     <div>
-      <h2>Your UE Profiles</h2>
-      <div style={{ marginBottom: '10px' }}>
-        <button onClick={handleGenerate}>Generate UE Profile(s)</button>
-        <button onClick={handleCreate}>Create UE Profile</button>
-        <input
-          type="text"
-          placeholder="Search by SUPI"
-          value={searchSUPI}
-          onChange={handleSearchChange}
-          style={{ marginLeft: '10px' }}
-        />
-      </div>
-      {editingProfile && (
-        <UEProfileForm
-          selectedProfile={editingProfile}
+      <Row className="mb-4">
+        <Col md={6}>
+          <Button variant="primary" onClick={() => setShowGenerateForm(true)}>
+            Generate UE Profile(s)
+          </Button>
+        </Col>
+        <Col md={6}>
+          <InputGroup>
+            <FormControl
+              placeholder="Search by SUPI"
+              value={searchSUPI}
+              onChange={handleSearchChange}
+            />
+            <Button variant="outline-secondary" onClick={() => setSearchSUPI('')}>
+              Clear
+            </Button>
+          </InputGroup>
+        </Col>
+      </Row>
+
+      {/* Generation Form Modal */}
+      {showGenerateForm && (
+        <GenerateUEProfileForm
+          onClose={() => setShowGenerateForm(false)}
           refreshProfiles={fetchProfiles}
-          setEditing={handleFormClose}
         />
       )}
+
       {filteredProfiles && filteredProfiles.length > 0 ? (
         Object.keys(groupedProfiles).map((date) => (
           <div key={date}>
-            <h3>{date}</h3>
-            {groupedProfiles[date].map((profile) => (
-              <UEProfileItem
-                key={profile.supi}
-                profile={profile}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            ))}
+            <h3 className="mt-4 mb-3">{date}</h3>
+            <Row>
+              {groupedProfiles[date].map((profile) => (
+                <Col md={6} lg={4} key={profile.supi} className="mb-4">
+                  <Card>
+                    <Card.Body>
+                      <UEProfileItem
+                        profile={profile}
+                        onDelete={handleDelete}
+                        refreshProfiles={fetchProfiles}
+                      />
+                    </Card.Body>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
           </div>
         ))
       ) : (

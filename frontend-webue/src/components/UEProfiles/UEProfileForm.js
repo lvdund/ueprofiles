@@ -1,30 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../../api';
 import { getToken } from '../../utils/auth';
+import { Form, Button, Row, Col, Card} from 'react-bootstrap';
+import PropTypes from 'prop-types';
+import { toast } from 'react-toastify';
 
-function UEProfileForm({ selectedProfile, refreshProfiles, setEditing }) {
-
-  const getDefaultFormData = () => ({
+function UEProfileForm({ selectedProfile, onClose, onSubmit }) {
+  const [formData, setFormData] = useState({
     supi: '',
     suci: '',
     plmnid: { mcc: '', mnc: '' },
-    configuredSlice: [],
-    defaultSlice: [],
+    ueconfiguredNssai: [{ sst: 0, sd: '' }],
+    uedefaultNssai: [{ sst: 0, sd: '' }],
     routingIndicator: '',
     homeNetworkPrivateKey: '',
     homeNetworkPublicKey: '',
     homeNetworkPublicKeyId: 0,
     protectionScheme: 0,
     key: '',
+    keypair: '', 
     op: '',
     opType: '',
     amf: '',
     imei: '',
-    imeiSv: '',
-    gnbSearchList: [],
+    imeisv: '',
+    gnbSearchList: [''],
     integrity: { IA1: false, IA2: false, IA3: false },
     ciphering: { EA1: false, EA2: false, EA3: false },
-    profiles: [],
     uacAic: { mps: false, mcs: false },
     uacAcc: {
       normalClass: 0,
@@ -34,27 +36,62 @@ function UEProfileForm({ selectedProfile, refreshProfiles, setEditing }) {
       class14: false,
       class15: false,
     },
-    sessions: [],
+    sessions: [{ type: '', apn: '', slice: { sst: 0, sd: '' } }],
     integrityMaxRate: { uplink: '', downlink: '' },
   });
 
-  const [formData, setFormData] = useState(
-    selectedProfile && Object.keys(selectedProfile).length > 0
-      ? selectedProfile
-      : getDefaultFormData()
-  );
-  
   useEffect(() => {
-    setFormData(
-      selectedProfile && Object.keys(selectedProfile).length > 0
-        ? selectedProfile
-        : getDefaultFormData()
-    );
+    if (selectedProfile) {
+      setFormData(selectedProfile);
+    } else {
+      setFormData({
+        supi: '',
+        suci: '',
+        plmnid: { mcc: '', mnc: '' },
+        ueConfiguredNssai: [{ sst: 0, sd: '' }],
+        ueDefaultNssai: [{ sst: 0, sd: '' }],
+        routingIndicator: '',
+        homeNetworkPrivateKey: '',
+        homeNetworkPublicKey: '',
+        homeNetworkPublicKeyId: 0,
+        protectionScheme: 0,
+        key: '',
+        keypair: '',
+        op: '',
+        opType: '',
+        amf: '',
+        imei: '',
+        imeisv: '',
+        gnbSearchList: [''],
+        integrity: { IA1: false, IA2: false, IA3: false },
+        ciphering: { EA1: false, EA2: false, EA3: false },
+        uacAic: { mps: false, mcs: false },
+        uacAcc: {
+          normalClass: 0,
+          class11: false,
+          class12: false,
+          class13: false,
+          class14: false,
+          class15: false,
+        },
+        sessions: [{ type: '', apn: '', slice: { sst: 0, sd: '' } }],
+        integrityMaxRate: { uplink: '', downlink: '' },
+      });
+    }
   }, [selectedProfile]);
-  
+
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    // Handle nested fields
+    const { name, value, type, checked } = e.target;
+    let newValue = type === 'checkbox' ? checked : value;
+
+    // Parse number inputs to integers
+    if (type === 'number') {
+      newValue = parseInt(value, 10);
+      if (isNaN(newValue)) {
+        newValue = 0; // Default value hoặc xử lý theo nhu cầu
+      }
+    }
+
     if (name.includes('.')) {
       const keys = name.split('.');
       setFormData((prevData) => {
@@ -64,13 +101,13 @@ function UEProfileForm({ selectedProfile, refreshProfiles, setEditing }) {
           if (!current[keys[i]]) current[keys[i]] = {};
           current = current[keys[i]];
         }
-        current[keys[keys.length - 1]] = value;
+        current[keys[keys.length - 1]] = newValue;
         return updatedData;
       });
     } else {
       setFormData({
         ...formData,
-        [name]: value,
+        [name]: newValue,
       });
     }
   };
@@ -101,10 +138,18 @@ function UEProfileForm({ selectedProfile, refreshProfiles, setEditing }) {
   const handleArrayChange = (fieldName, index, subFieldName, value) => {
     setFormData((prevData) => {
       const updatedArray = [...prevData[fieldName]];
-      updatedArray[index] = {
-        ...updatedArray[index],
-        [subFieldName]: value,
-      };
+      if (subFieldName) {
+        if (typeof updatedArray[index][subFieldName] === 'object') {
+          updatedArray[index][subFieldName] = {
+            ...updatedArray[index][subFieldName],
+            ...value,
+          };
+        } else {
+          updatedArray[index][subFieldName] = value;
+        }
+      } else {
+        updatedArray[index] = value;
+      }
       return {
         ...prevData,
         [fieldName]: updatedArray,
@@ -134,542 +179,499 @@ function UEProfileForm({ selectedProfile, refreshProfiles, setEditing }) {
     e.preventDefault();
     const token = getToken();
     try {
+      console.log('Submitting formData:', formData);
+
       if (selectedProfile) {
-        // Update existing profile
-        await axios.put(`/ue_profiles/${selectedProfile.supi}`, formData, {
+        // **Xóa SUPI và UserID nếu có trong formData để tránh gửi những trường không thể cập nhật**
+        const { supi, userId, ...updateData } = formData;
+
+        // **Kiểm tra các trường bắt buộc**
+        if (!updateData.plmnid.mcc || !updateData.plmnid.mnc) {
+          toast.error('MCC and MNC of the PLMN ID are compulsory.');
+          return;
+        }
+
+        // **Update Profile**
+        await axios.put(`/ue_profiles/${selectedProfile.supi}`, updateData, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        setEditing(false);
+        toast.success('UE Profile updated successfully.');
+        onSubmit();
       } else {
-        // Create new profile
+        // **Generate new Profiles**
         await axios.post('/ue_profiles', [formData], {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
+        toast.success('UE Profile created successfully.');
+        onSubmit();
       }
-      refreshProfiles();
     } catch (error) {
-      console.error('Error saving profile', error);
+      console.error('Error saving profile:', error);
+      const errorMsg = error.response?.data?.error || 'An error occurred while saving the UE Profile.';
+      toast.error(errorMsg);
     }
   };
 
   return (
-    <div>
-      <h3>{selectedProfile ? 'Edit UE Profile' : 'Create UE Profile'}</h3>
-      <form onSubmit={handleSubmit}>
-        {/* SUPI */}
-        <div>
-          <label>SUPI:</label>
-          <input
-            type="text"
-            name="supi"
-            value={formData.supi || ''}
-            onChange={handleChange}
-            required={!selectedProfile}
-            disabled={!!selectedProfile}
-          />
-        </div>
-
-        {/* SUCI */}
-        <div>
-          <label>SUCI:</label>
-          <input
-            type="text"
-            name="suci"
-            value={formData.suci || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* PlmnId */}
-        <div>
-          <h4>PLMN ID</h4>
-          <div>
-            <label>MCC:</label>
-            <input
-              type="text"
-              name="plmnid.mcc"
-              value={formData.plmnid?.mcc || ''}
-              onChange={handleChange}
-            />
-          </div>
-          <div>
-            <label>MNC:</label>
-            <input
-              type="text"
-              name="plmnid.mnc"
-              value={formData.plmnid?.mnc || ''}
-              onChange={handleChange}
-            />
-          </div>
-        </div>
-
-        {/* ConfiguredSlice */}
-        <div>
-          <h4>Configured Slices</h4>
-          {formData.configuredSlice.map((slice, index) => (
-            <div key={index}>
-              <h5>Slice {index + 1}</h5>
-              <div>
-                <label>SST:</label>
-                <input
-                  type="number"
-                  value={slice.sst}
-                  onChange={(e) =>
-                    handleArrayChange(
-                      'configuredSlice',
-                      index,
-                      'sst',
-                      parseInt(e.target.value, 10)
-                    )
-                  }
-                />
-              </div>
-              <div>
-                <label>SD:</label>
-                <input
-                  type="text"
-                  value={slice.sd}
-                  onChange={(e) =>
-                    handleArrayChange('configuredSlice', index, 'sd', e.target.value)
-                  }
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => removeArrayItem('configuredSlice', index)}
-              >
-                Remove Slice
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() =>
-              addArrayItem('configuredSlice', {
-                sst: 0,
-                sd: '',
-              })
-            }
-          >
-            Add Slice
-          </button>
-        </div>
-
-        {/* Similar blocks for DefaultSlice, Profiles, Sessions, GnbSearchList */}
-
-        {/* Routing Indicator */}
-        <div>
-          <label>Routing Indicator:</label>
-          <input
-            type="text"
-            name="routingIndicator"
-            value={formData.routingIndicator || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* Home Network Private Key */}
-        <div>
-          <label>Home Network Private Key:</label>
-          <input
-            type="text"
-            name="homeNetworkPrivateKey"
-            value={formData.homeNetworkPrivateKey || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* Home Network Public Key */}
-        <div>
-          <label>Home Network Public Key:</label>
-          <input
-            type="text"
-            name="homeNetworkPublicKey"
-            value={formData.homeNetworkPublicKey || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* Home Network Public Key ID */}
-        <div>
-          <label>Home Network Public Key ID:</label>
-          <input
-            type="number"
-            name="homeNetworkPublicKeyId"
-            value={formData.homeNetworkPublicKeyId || 0}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* Protection Scheme */}
-        <div>
-          <label>Protection Scheme:</label>
-          <input
-            type="number"
-            name="protectionScheme"
-            value={formData.protectionScheme || 0}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* Key */}
-        <div>
-          <label>Key:</label>
-          <input
-            type="text"
-            name="key"
-            value={formData.key || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* OP */}
-        <div>
-          <label>OP:</label>
-          <input
-            type="text"
-            name="op"
-            value={formData.op || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* OP Type */}
-        <div>
-          <label>OP Type:</label>
-          <select name="opType" value={formData.opType || ''} onChange={handleChange}>
-            <option value="">Select</option>
-            <option value="OP">OP</option>
-            <option value="OPC">OPC</option>
-          </select>
-        </div>
-
-        {/* AMF */}
-        <div>
-          <label>AMF:</label>
-          <input
-            type="text"
-            name="amf"
-            value={formData.amf || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* IMEI */}
-        <div>
-          <label>IMEI:</label>
-          <input
-            type="text"
-            name="imei"
-            value={formData.imei || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* IMEISV */}
-        <div>
-          <label>IMEISV:</label>
-          <input
-            type="text"
-            name="imeisv"
-            value={formData.imeisv || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* GNB Search List */}
-        <div>
-          <h4>GNB Search List</h4>
-          {formData.gnbSearchList.map((gnb, index) => (
-            <div key={index}>
-              <input
+    <Card className="mt-3">
+      <Card.Body>
+        <Card.Title>{selectedProfile ? 'Edit UE Profile' : 'Create UE Profile'}</Card.Title>
+        <Form onSubmit={handleSubmit}>
+          {/* SUPI */}
+          <Form.Group as={Row} className="mb-3" controlId="supi">
+            <Form.Label column sm={3}>SUPI:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
                 type="text"
-                value={gnb}
-                onChange={(e) =>
-                  handleArrayChange('gnbSearchList', index, null, e.target.value)
-                }
+                name="supi"
+                value={formData.supi || ''}
+                onChange={handleChange}
+                required={!selectedProfile}
+                disabled={!!selectedProfile}
+                placeholder="Enter SUPI"
               />
-              <button
-                type="button"
-                onClick={() => removeArrayItem('gnbSearchList', index)}
+            </Col>
+          </Form.Group>
+
+          {/* UserID */}
+          <Form.Group as={Row} className="mb-3" controlId="userId">
+            <Form.Label column sm={3}>UserID:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="userId"
+                value={formData.userId || ''}
+                onChange={handleChange}
+                disabled
+                placeholder="UserID (Read-Only)"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* PLMN ID */}
+          <Form.Group as={Row} className="mb-3">
+            <Form.Label column sm={3}>PLMN ID:</Form.Label>
+            <Col sm={4}>
+              <Form.Control
+                type="text"
+                name="plmnid.mcc"
+                value={formData.plmnid?.mcc || ''}
+                onChange={handleChange}
+                placeholder="MCC"
+                required
+              />
+            </Col>
+            <Col sm={5}>
+              <Form.Control
+                type="text"
+                name="plmnid.mnc"
+                value={formData.plmnid?.mnc || ''}
+                onChange={handleChange}
+                placeholder="MNC"
+                required
+              />
+            </Col>
+          </Form.Group>
+
+          {/* Configured Slices */}
+          <h5 className="mt-4">Configured Slices</h5>
+          {Array.isArray(formData.ueConfiguredNssai) &&
+            formData.ueConfiguredNssai.map((slice, index) => (
+              <Form.Group as={Row} className="mb-3" key={index}>
+                <Form.Label column sm={2}>Slice {index + 1}:</Form.Label>
+                <Col sm={4}>
+                  <Form.Control
+                    type="number"
+                    name={`ueConfiguredNssai.${index}.sst`}
+                    value={slice.sst}
+                    onChange={(e) => handleArrayChange('ueConfiguredNssai', index, 'sst', parseInt(e.target.value, 10))}
+                    placeholder="SST"
+                    required
+                  />
+                </Col>
+                <Col sm={4}>
+                  <Form.Control
+                    type="text"
+                    name={`ueConfiguredNssai.${index}.sd`}
+                    value={slice.sd}
+                    onChange={(e) => handleArrayChange('ueConfiguredNssai', index, 'sd', e.target.value)}
+                    placeholder="SD"
+                    required
+                  />
+                </Col>
+                <Col sm={2} className="d-flex align-items-center">
+                  {formData.ueConfiguredNssai.length > 1 && (
+                    <Button variant="danger" size="sm" onClick={() => removeArrayItem('ueConfiguredNssai', index)}>
+                      Remove
+                    </Button>
+                  )}
+                </Col>
+              </Form.Group>
+            ))}
+          <Button variant="secondary" onClick={() => addArrayItem('ueConfiguredNssai', { sst: 0, sd: '' })} className="mb-3">
+            Add Configured Slice
+          </Button>
+          
+          
+
+          {/* Routing Indicator */}
+          <Form.Group as={Row} className="mb-3" controlId="routingIndicator">
+            <Form.Label column sm={3}>Routing Indicator:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="routingIndicator"
+                value={formData.routingIndicator || ''}
+                onChange={handleChange}
+                placeholder="Enter Routing Indicator"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* Home Network Private Key */}
+          <Form.Group as={Row} className="mb-3" controlId="homeNetworkPrivateKey">
+            <Form.Label column sm={3}>Home Network Private Key:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="homeNetworkPrivateKey"
+                value={formData.homeNetworkPrivateKey || ''}
+                onChange={handleChange}
+                placeholder="Enter Home Network Private Key"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* Home Network Public Key */}
+          <Form.Group as={Row} className="mb-3" controlId="homeNetworkPublicKey">
+            <Form.Label column sm={3}>Home Network Public Key:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="homeNetworkPublicKey"
+                value={formData.homeNetworkPublicKey || ''}
+                onChange={handleChange}
+                placeholder="Enter Home Network Public Key"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* Home Network Public Key ID */}
+          <Form.Group as={Row} className="mb-3" controlId="homeNetworkPublicKeyId">
+            <Form.Label column sm={3}>Home Network Public Key ID:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="number"
+                name="homeNetworkPublicKeyId"
+                value={formData.homeNetworkPublicKeyId || 0}
+                onChange={handleChange}
+                placeholder="Enter Home Network Public Key ID"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* Protection Scheme */}
+          <Form.Group as={Row} className="mb-3" controlId="protectionScheme">
+            <Form.Label column sm={3}>Protection Scheme:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="number"
+                name="protectionScheme"
+                value={formData.protectionScheme || 0}
+                onChange={handleChange}
+                placeholder="Enter Protection Scheme"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* Key */}
+          <Form.Group as={Row} className="mb-3" controlId="key">
+            <Form.Label column sm={3}>Key:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="key"
+                value={formData.key || ''}
+                onChange={handleChange}
+                placeholder="Enter Key"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* KeyPair */}
+          <Form.Group as={Row} className="mb-3" controlId="keypair">
+            <Form.Label column sm={3}>KeyPair:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="keypair"
+                value={formData.keypair || ''}
+                onChange={handleChange}
+                placeholder="Enter KeyPair"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* OP */}
+          <Form.Group as={Row} className="mb-3" controlId="op">
+            <Form.Label column sm={3}>OP:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="op"
+                value={formData.op || ''}
+                onChange={handleChange}
+                placeholder="Enter OP"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* OP Type */}
+          <Form.Group as={Row} className="mb-3" controlId="opType">
+            <Form.Label column sm={3}>OP Type:</Form.Label>
+            <Col sm={9}>
+              <Form.Select
+                name="opType"
+                value={formData.opType || ''}
+                onChange={handleChange}
               >
-                Remove
-              </button>
-            </div>
+                <option value="">Select</option>
+                <option value="OP">OP</option>
+                <option value="OPC">OPC</option>
+              </Form.Select>
+            </Col>
+          </Form.Group>
+
+          {/* AMF */}
+          <Form.Group as={Row} className="mb-3" controlId="amf">
+            <Form.Label column sm={3}>AMF:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="amf"
+                value={formData.amf || ''}
+                onChange={handleChange}
+                placeholder="Enter AMF"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* IMEI */}
+          <Form.Group as={Row} className="mb-3" controlId="imei">
+            <Form.Label column sm={3}>IMEI:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="imei"
+                value={formData.imei || ''}
+                onChange={handleChange}
+                placeholder="Enter IMEI"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* IMEISV */}
+          <Form.Group as={Row} className="mb-3" controlId="imeisv">
+            <Form.Label column sm={3}>IMEISV:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="imeisv"
+                value={formData.imeisv || ''}
+                onChange={handleChange}
+                placeholder="Enter IMEISV"
+              />
+            </Col>
+          </Form.Group>
+
+          {/* GNB Search List */}
+          <h5 className="mt-4">GNB Search List</h5>
+          {formData.gnbSearchList.map((gnb, index) => (
+            <Form.Group as={Row} className="mb-3" key={index}>
+              <Form.Label column sm={2}>GNB {index + 1}:</Form.Label>
+              <Col sm={8}>
+                <Form.Control
+                  type="text"
+                  name={`gnbSearchList.${index}`}
+                  value={gnb}
+                  onChange={(e) => handleArrayChange('gnbSearchList', index, null, e.target.value)}
+                  placeholder="Enter GNB"
+                  required
+                />
+              </Col>
+              <Col sm={2} className="d-flex align-items-center">
+                {formData.gnbSearchList.length > 1 && (
+                  <Button variant="danger" size="sm" onClick={() => removeArrayItem('gnbSearchList', index)}>
+                    Remove
+                  </Button>
+                )}
+              </Col>
+            </Form.Group>
           ))}
-          <button
-            type="button"
-            onClick={() => addArrayItem('gnbSearchList', '')}
-          >
+          <Button variant="secondary" onClick={() => addArrayItem('gnbSearchList', '')} className="mb-3">
             Add GNB
-          </button>
-        </div>
+          </Button>
 
-        {/* Integrity */}
-        <div>
-          <h4>Integrity Algorithms</h4>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                name="integrity.IA1"
-                checked={formData.integrity?.IA1 || false}
-                onChange={handleCheckboxChange}
-              />
-              IA1
-            </label>
-          </div>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                name="integrity.IA2"
-                checked={formData.integrity?.IA2 || false}
-                onChange={handleCheckboxChange}
-              />
-              IA2
-            </label>
-          </div>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                name="integrity.IA3"
-                checked={formData.integrity?.IA3 || false}
-                onChange={handleCheckboxChange}
-              />
-              IA3
-            </label>
-          </div>
-        </div>
-
-        {/* Ciphering */}
-        <div>
-          <h4>Ciphering Algorithms</h4>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                name="ciphering.EA1"
-                checked={formData.ciphering?.EA1 || false}
-                onChange={handleCheckboxChange}
-              />
-              EA1
-            </label>
-          </div>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                name="ciphering.EA2"
-                checked={formData.ciphering?.EA2 || false}
-                onChange={handleCheckboxChange}
-              />
-              EA2
-            </label>
-          </div>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                name="ciphering.EA3"
-                checked={formData.ciphering?.EA3 || false}
-                onChange={handleCheckboxChange}
-              />
-              EA3
-            </label>
-          </div>
-        </div>
-
-        {/* Profiles */}
-        <div>
-          <h4>Profiles</h4>
-          {formData.profiles.map((profile, index) => (
-            <div key={index}>
-              <h5>Profile {index + 1}</h5>
-              <div>
-                <label>Scheme:</label>
-                <input
-                  type="number"
-                  value={profile.scheme}
-                  onChange={(e) =>
-                    handleArrayChange(
-                      'profiles',
-                      index,
-                      'scheme',
-                      parseInt(e.target.value, 10)
-                    )
-                  }
-                />
-              </div>
-              <div>
-                <label>Private Key:</label>
-                <input
-                  type="text"
-                  value={profile.privateKey}
-                  onChange={(e) =>
-                    handleArrayChange('profiles', index, 'privateKey', e.target.value)
-                  }
-                />
-              </div>
-              <div>
-                <label>Public Key:</label>
-                <input
-                  type="text"
-                  value={profile.publicKey}
-                  onChange={(e) =>
-                    handleArrayChange('profiles', index, 'publicKey', e.target.value)
-                  }
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => removeArrayItem('profiles', index)}
-              >
-                Remove Profile
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() =>
-              addArrayItem('profiles', {
-                scheme: 0,
-                privateKey: '',
-                publicKey: '',
-              })
-            }
-          >
-            Add Profile
-          </button>
-        </div>
-
-        {/* UAC Access Identities Configuration (UacAic) */}
-        <div>
-          <h4>UAC Access Identities Configuration</h4>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                name="uacAic.mps"
-                checked={formData.uacAic?.mps || false}
-                onChange={handleCheckboxChange}
-              />
-              MPS
-            </label>
-          </div>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                name="uacAic.mcs"
-                checked={formData.uacAic?.mcs || false}
-                onChange={handleCheckboxChange}
-              />
-              MCS
-            </label>
-          </div>
-        </div>
-
-        {/* UAC Access Control Class (UacAcc) */}
-        <div>
-          <h4>UAC Access Control Class</h4>
-          <div>
-            <label>Normal Class:</label>
-            <input
-              type="number"
-              name="uacAcc.normalClass"
-              value={formData.uacAcc?.normalClass || 0}
-              onChange={handleChange}
-            />
-          </div>
-          {['class11', 'class12', 'class13', 'class14', 'class15'].map((cls) => (
-            <div key={cls}>
-              <label>
-                <input
+          {/* Integrity Algorithms */}
+          <h5 className="mt-4">Integrity Algorithms</h5>
+          <Form.Group as={Row} className="mb-3">
+            <Col sm={{ span: 10, offset: 2 }}>
+              {['IA1', 'IA2', 'IA3'].map((alg) => (
+                <Form.Check
+                  inline
+                  key={alg}
                   type="checkbox"
-                  name={`uacAcc.${cls}`}
-                  checked={formData.uacAcc?.[cls] || false}
+                  label={alg}
+                  name={`integrity.${alg}`}
+                  checked={formData.integrity[alg]}
                   onChange={handleCheckboxChange}
                 />
-                {cls}
-              </label>
-            </div>
-          ))}
-        </div>
+              ))}
+            </Col>
+          </Form.Group>
 
-        {/* Sessions */}
-        <div>
-          <h4>Sessions</h4>
+          {/* Ciphering Algorithms */}
+          <h5 className="mt-4">Ciphering Algorithms</h5>
+          <Form.Group as={Row} className="mb-3">
+            <Col sm={{ span: 10, offset: 2 }}>
+              {['EA1', 'EA2', 'EA3'].map((alg) => (
+                <Form.Check
+                  inline
+                  key={alg}
+                  type="checkbox"
+                  label={alg}
+                  name={`ciphering.${alg}`}
+                  checked={formData.ciphering[alg]}
+                  onChange={handleCheckboxChange}
+                />
+              ))}
+            </Col>
+          </Form.Group>
+
+          {/* UAC Access Identities Configuration */}
+          <h5 className="mt-4">UAC Access Identities Configuration</h5>
+          <Form.Group as={Row} className="mb-3">
+            <Col sm={{ span: 10, offset: 2 }}>
+              {['mps', 'mcs'].map((field) => (
+                <Form.Check
+                  inline
+                  key={field}
+                  type="checkbox"
+                  label={field.toUpperCase()}
+                  name={`uacAic.${field}`}
+                  checked={formData.uacAic[field]}
+                  onChange={handleCheckboxChange}
+                />
+              ))}
+            </Col>
+          </Form.Group>
+
+          {/* UAC Access Control Class */}
+          <h5 className="mt-4">UAC Access Control Class</h5>
+          <Form.Group as={Row} className="mb-3" controlId="normalClass">
+            <Form.Label column sm={4}>Normal Class:</Form.Label>
+            <Col sm={8}>
+              <Form.Control
+                type="number"
+                name="uacAcc.normalClass"
+                value={formData.uacAcc.normalClass}
+                onChange={handleChange}
+                placeholder="Enter Normal Class"
+              />
+            </Col>
+          </Form.Group>
+          <Form.Group as={Row} className="mb-3">
+            <Col sm={{ span: 10, offset: 2 }}>
+              {['class11', 'class12', 'class13', 'class14', 'class15'].map((cls) => (
+                <Form.Check
+                  inline
+                  key={cls}
+                  type="checkbox"
+                  label={cls.toUpperCase()}
+                  name={`uacAcc.${cls}`}
+                  checked={formData.uacAcc[cls]}
+                  onChange={handleChange}
+                />
+              ))}
+            </Col>
+          </Form.Group>
+
+          {/* Sessions */}
+          <h5 className="mt-4">Sessions</h5>
           {formData.sessions.map((session, index) => (
-            <div key={index}>
-              <h5>Session {index + 1}</h5>
-              <div>
-                <label>Type:</label>
-                <input
-                  type="text"
-                  value={session.type}
-                  onChange={(e) =>
-                    handleArrayChange('sessions', index, 'type', e.target.value)
-                  }
-                />
-              </div>
-              <div>
-                <label>APN:</label>
-                <input
-                  type="text"
-                  value={session.apn}
-                  onChange={(e) =>
-                    handleArrayChange('sessions', index, 'apn', e.target.value)
-                  }
-                />
-              </div>
-              {/* Slice within Session */}
-              <div>
-                <h5>Slice</h5>
-                <div>
-                  <label>SST:</label>
-                  <input
-                    type="number"
-                    value={session.slice.sst}
-                    onChange={(e) =>
-                      setFormData((prevData) => {
-                        const updatedSessions = [...prevData.sessions];
-                        updatedSessions[index].slice.sst = parseInt(e.target.value, 10);
-                        return { ...prevData, sessions: updatedSessions };
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label>SD:</label>
-                  <input
-                    type="text"
-                    value={session.slice.sd}
-                    onChange={(e) =>
-                      setFormData((prevData) => {
-                        const updatedSessions = [...prevData.sessions];
-                        updatedSessions[index].slice.sd = e.target.value;
-                        return { ...prevData, sessions: updatedSessions };
-                      })
-                    }
-                  />
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeArrayItem('sessions', index)}
-              >
-                Remove Session
-              </button>
-            </div>
+            <Card className="mb-3" key={index}>
+              <Card.Body>
+                <h6>Session {index + 1}</h6>
+                <Form.Group as={Row} className="mb-3" controlId={`sessions.${index}.type`}>
+                  <Form.Label column sm={2}>Type:</Form.Label>
+                  <Col sm={10}>
+                    <Form.Control
+                      type="text"
+                      name={`sessions.${index}.type`}
+                      value={session.type}
+                      onChange={(e) => handleArrayChange('sessions', index, 'type', e.target.value)}
+                      placeholder="Enter Type"
+                      required
+                    />
+                  </Col>
+                </Form.Group>
+                <Form.Group as={Row} className="mb-3" controlId={`sessions.${index}.apn`}>
+                  <Form.Label column sm={2}>APN:</Form.Label>
+                  <Col sm={10}>
+                    <Form.Control
+                      type="text"
+                      name={`sessions.${index}.apn`}
+                      value={session.apn}
+                      onChange={(e) => handleArrayChange('sessions', index, 'apn', e.target.value)}
+                      placeholder="Enter APN"
+                      required
+                    />
+                  </Col>
+                </Form.Group>
+                {/* Slice within Session */}
+                <h6>Slice</h6>
+                <Form.Group as={Row} className="mb-3" controlId={`sessions.${index}.slice.sst`}>
+                  <Form.Label column sm={2}>SST:</Form.Label>
+                  <Col sm={10}>
+                    <Form.Control
+                      type="number"
+                      name={`sessions.${index}.slice.sst`}
+                      value={session.slice.sst}
+                      onChange={(e) => handleArrayChange('sessions', index, 'slice.sst', parseInt(e.target.value, 10))}
+                      placeholder="Enter SST"
+                      required
+                    />
+                  </Col>
+                </Form.Group>
+                <Form.Group as={Row} className="mb-3" controlId={`sessions.${index}.slice.sd`}>
+                  <Form.Label column sm={2}>SD:</Form.Label>
+                  <Col sm={10}>
+                    <Form.Control
+                      type="text"
+                      name={`sessions.${index}.slice.sd`}
+                      value={session.slice.sd}
+                      onChange={(e) => handleArrayChange('sessions', index, 'slice.sd', e.target.value)}
+                      placeholder="Enter SD"
+                      required
+                    />
+                  </Col>
+                </Form.Group>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => removeArrayItem('sessions', index)}
+                >
+                  Remove Session
+                </Button>
+              </Card.Body>
+            </Card>
           ))}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() =>
               addArrayItem('sessions', {
                 type: '',
@@ -677,44 +679,57 @@ function UEProfileForm({ selectedProfile, refreshProfiles, setEditing }) {
                 slice: { sst: 0, sd: '' },
               })
             }
+            className="mb-3"
           >
             Add Session
-          </button>
-        </div>
+          </Button>
 
-        {/* Integrity Max Rate */}
-        <div>
-          <h4>Integrity Max Rate</h4>
-          <div>
-            <label>Uplink:</label>
-            <input
-              type="text"
-              name="integrityMaxRate.uplink"
-              value={formData.integrityMaxRate?.uplink || ''}
-              onChange={handleChange}
-            />
-          </div>
-          <div>
-            <label>Downlink:</label>
-            <input
-              type="text"
-              name="integrityMaxRate.downlink"
-              value={formData.integrityMaxRate?.downlink || ''}
-              onChange={handleChange}
-            />
-          </div>
-        </div>
+          {/* Integrity Max Rate */}
+          <h5 className="mt-4">Integrity Max Rate</h5>
+          <Form.Group as={Row} className="mb-3" controlId="integrityMaxRate.uplink">
+            <Form.Label column sm={3}>Uplink:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="integrityMaxRate.uplink"
+                value={formData.integrityMaxRate.uplink || ''}
+                onChange={handleChange}
+                placeholder="Enter Uplink Rate"
+              />
+            </Col>
+          </Form.Group>
+          <Form.Group as={Row} className="mb-3" controlId="integrityMaxRate.downlink">
+            <Form.Label column sm={3}>Downlink:</Form.Label>
+            <Col sm={9}>
+              <Form.Control
+                type="text"
+                name="integrityMaxRate.downlink"
+                value={formData.integrityMaxRate.downlink || ''}
+                onChange={handleChange}
+                placeholder="Enter Downlink Rate"
+              />
+            </Col>
+          </Form.Group>
 
-        {/* Submit Button */}
-        <button type="submit">{selectedProfile ? 'Update' : 'Create'}</button>
-        {selectedProfile && (
-          <button type="button" onClick={() => setEditing(false)}>
-            Cancel
-          </button>
-        )}
-      </form>
-    </div>
+          {/* Submit and Cancel Buttons */}
+          <div className="d-flex justify-content-end mt-4">
+            <Button variant="success" type="submit" className="me-2">
+              {selectedProfile ? 'Update' : 'Create'}
+            </Button>
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+          </div>
+        </Form>
+      </Card.Body>
+    </Card>
   );
 }
+
+UEProfileForm.propTypes = {
+  selectedProfile: PropTypes.object,
+  onClose: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+};
 
 export default UEProfileForm;

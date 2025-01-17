@@ -1,213 +1,300 @@
-import React from 'react';
+import React, { useState } from 'react';
+import UEProfileForm from './UEProfileForm';
+import DeleteConfirmationModal from '../DeleteConfirmationModal';
+import PropTypes from 'prop-types';
+import { Button, ListGroup, Badge, Row, Col, Collapse, Card } from 'react-bootstrap';
+import { toast } from 'react-toastify';
 
-function UEProfileItem({ profile, onEdit, onDelete }) {
+function UEProfileItem({ profile, onDelete, refreshProfiles }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [open, setOpen] = useState(false); // For collapsing details
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    setOpen(true); // Automatically open details for editing
+  };
+
+  const handleFormClose = () => {
+    setIsEditing(false);
+  };
+
+  const handleFormSubmit = async () => {
+    try {
+      await refreshProfiles();
+      setIsEditing(false);
+      toast.success('UE Profile updated successfully.');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Error updating UE Profile.');
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    onDelete(profile.supi);
+    setShowDeleteModal(false);
+  };
+
+  const handleCloseModal = () => {
+    setShowDeleteModal(false);
+  };
+  console.log('UE Profile Data:', profile);
+
   return (
-    <div style={{ border: '1px solid black', margin: '10px', padding: '10px' }}>
-      <h3>UE Profile: {profile.supi}</h3>
+    <>
+      <ListGroup.Item className="mb-3 p-3 shadow-sm">
+        <Row>
+          <Col md={8} onClick={() => setOpen(!open)} style={{ cursor: 'pointer' }}>
+            <h5>UE Profile: {profile.supi}</h5>
+          </Col>
+          <Col md={4} className="text-end">
+            <Button variant="outline-primary" size="sm" onClick={handleEdit} className="me-2">
+              Edit
+            </Button>
+            <Button variant="outline-danger" size="sm" onClick={handleDeleteClick}>
+              Delete
+            </Button>
+          </Col>
+        </Row>
+        <Collapse in={open}>
+          <div>
+            <ListGroup variant="flush" className="mt-3">
+              {/* ID và UserID */}
+              <ListGroup.Item>
+                <strong>ID:</strong> {profile.id || 'N/A'}
+              </ListGroup.Item>
+              <ListGroup.Item>
+                <strong>UserID:</strong> {profile.userId || 'N/A'}
+              </ListGroup.Item>
 
-      {/* Basic Fields */}
-      <p>
-        <strong>SUPI:</strong> {profile.supi}
-      </p>
-      <p>
-        <strong>SUCI:</strong> {profile.suci}
-      </p>
+              {/* SUCI */}
+              <ListGroup.Item>
+                <strong>SUCI:</strong> {profile.suci || 'N/A'}
+              </ListGroup.Item>
 
-      {/* PlmnId */}
-      <div>
-        <h4>PLMN ID</h4>
-        <p>
-          <strong>MCC:</strong> {profile.plmnid?.mcc}
-        </p>
-        <p>
-          <strong>MNC:</strong> {profile.plmnid?.mnc}
-        </p>
-      </div>
+              {/* PLMN ID */}
+              <ListGroup.Item>
+                <strong>PLMN ID:</strong> MCC: {profile.plmnid?.mcc || 'N/A'}, MNC: {profile.plmnid?.mnc || 'N/A'}
+              </ListGroup.Item>
 
-      {/* ConfiguredSlice */}
-      <div>
-        <h4>Configured Slices</h4>
-        {profile.configuredSlice?.map((slice, index) => (
-          <div key={index}>
-            <p>
-              <strong>Slice {index + 1}</strong>
-            </p>
-            <p>
-              <strong>SST:</strong> {slice.sst}
-            </p>
-            <p>
-              <strong>SD:</strong> {slice.sd}
-            </p>
+              {/* Configured Slices */}
+              <ListGroup.Item>
+                <strong>Configured Slices:</strong>
+                <div className="mt-2">
+                  {profile.ueconfiguredNssai && profile.ueconfiguredNssai.length > 0 ? (
+                    profile.ueconfiguredNssai.map((slice, index) => (
+                      <Badge bg="secondary" key={index} className="me-1">
+                        SST: {slice.sst}, SD: {slice.sd}
+                      </Badge>
+                    ))
+                  ) : (
+                    'N/A'
+                  )}
+                </div>
+              </ListGroup.Item>
+
+              {/* Default Slices */}
+              <ListGroup.Item>
+                <strong>Default Slices:</strong>
+                <div className="mt-2">
+                  {profile.uedefaultNssai && profile.uedefaultNssai.length > 0 ? (
+                    profile.uedefaultNssai.map((slice, index) => (
+                      <Badge bg="info" key={index} className="me-1">
+                        SST: {slice.sst}, SD: {slice.sd}
+                      </Badge>
+                    ))
+                  ) : (
+                    'N/A'
+                  )}
+                </div>
+              </ListGroup.Item>
+
+              {/* Routing Indicator */}
+              <ListGroup.Item>
+                <strong>Routing Indicator:</strong> {profile.routingIndicator || 'N/A'}
+              </ListGroup.Item>
+
+              {/* Home Network Keys */}
+              <ListGroup.Item>
+                <strong>Home Network Private Key:</strong> {profile.homeNetworkPrivateKey || 'N/A'}
+              </ListGroup.Item>
+              <ListGroup.Item>
+                <strong>Home Network Public Key:</strong> {profile.homeNetworkPublicKey || 'N/A'}
+              </ListGroup.Item>
+              <ListGroup.Item>
+                <strong>Home Network Public Key ID:</strong> {profile.homeNetworkPublicKeyId || 'N/A'}
+              </ListGroup.Item>
+
+              {/* Protection Scheme */}
+              <ListGroup.Item>
+                <strong>Protection Scheme:</strong> {profile.protectionScheme || 'N/A'}
+              </ListGroup.Item>
+
+              {/* Key và KeyPair */}
+              <ListGroup.Item>
+                <strong>Key:</strong> {profile.key || 'N/A'}
+              </ListGroup.Item>
+              <ListGroup.Item>
+                <strong>KeyPair:</strong> {profile.keypair || 'N/A'}
+              </ListGroup.Item>
+
+              {/* OP và OP Type */}
+              <ListGroup.Item>
+                <strong>OP:</strong> {profile.op || 'N/A'}
+              </ListGroup.Item>
+              <ListGroup.Item>
+                <strong>OP Type:</strong> {profile.opType || 'N/A'}
+              </ListGroup.Item>
+
+              {/* AMF */}
+              <ListGroup.Item>
+                <strong>AMF:</strong> {profile.amf || 'N/A'}
+              </ListGroup.Item>
+
+              {/* IMEI và IMEISV */}
+              <ListGroup.Item>
+                <strong>IMEI:</strong> {profile.imei || 'N/A'}
+              </ListGroup.Item>
+              <ListGroup.Item>
+                <strong>IMEISV:</strong> {profile.imeisv || 'N/A'}
+              </ListGroup.Item>
+
+              {/* GNB Search List */}
+              <ListGroup.Item>
+                <strong>GNB Search List:</strong>
+                <div className="mt-2">
+                  {profile.gnbSearchList?.map((gnb, index) => (
+                    <Badge bg="warning" key={index} className="me-1">
+                      {gnb}
+                    </Badge>
+                  )) || 'N/A'}
+                </div>
+              </ListGroup.Item>
+
+              {/* Sessions */}
+              <ListGroup.Item>
+                <strong>Sessions:</strong>
+                <div className="mt-2">
+                  {profile.sessions?.map((session, index) => (
+                    <Card key={index} className="mb-2">
+                      <Card.Body>
+                        <strong>Session {index + 1}:</strong>
+                        <div><strong>Type:</strong> {session.type || 'N/A'}</div>
+                        <div><strong>APN:</strong> {session.apn || 'N/A'}</div>
+                        <div>
+                          <strong>Slice:</strong> SST: {session.slice?.sst || 'N/A'}, SD: {session.slice?.sd || 'N/A'}
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  )) || 'N/A'}
+                </div>
+              </ListGroup.Item>
+
+              {/* Integrity Max Rate */}
+              <ListGroup.Item>
+                <strong>Integrity Max Rate:</strong>
+                <div className="mt-2">
+                  <div><strong>Uplink:</strong> {profile.integrityMaxRate?.uplink || 'N/A'}</div>
+                  <div><strong>Downlink:</strong> {profile.integrityMaxRate?.downlink || 'N/A'}</div>
+                </div>
+              </ListGroup.Item>
+
+              {/* Integrity */}
+              <ListGroup.Item>
+                <strong>Integrity:</strong>
+                <div className="mt-2">
+                  {['IA1', 'IA2', 'IA3'].map((alg) => (
+                    <Badge
+                      bg={profile.integrity[alg] ? 'success' : 'danger'}
+                      key={alg}
+                      className="me-1"
+                    >
+                      {alg}
+                    </Badge>
+                  )) || 'N/A'}
+                </div>
+              </ListGroup.Item>
+
+              {/* Ciphering */}
+              <ListGroup.Item>
+                <strong>Ciphering:</strong>
+                <div className="mt-2">
+                  {['EA1', 'EA2', 'EA3'].map((alg) => (
+                    <Badge
+                      bg={profile.ciphering[alg] ? 'success' : 'danger'}
+                      key={alg}
+                      className="me-1"
+                    >
+                      {alg}
+                    </Badge>
+                  )) || 'N/A'}
+                </div>
+              </ListGroup.Item>
+
+              {/* UAC Access Identities Configuration */}
+              <ListGroup.Item>
+                <strong>UAC Access Identities Configuration:</strong>
+                <div className="mt-2">
+                  {['mps', 'mcs'].map((field) => (
+                    <Badge
+                      bg={profile.uacAic[field] ? 'success' : 'danger'}
+                      key={field}
+                      className="me-1"
+                    >
+                      {field.toUpperCase()}
+                    </Badge>
+                  )) || 'N/A'}
+                </div>
+              </ListGroup.Item>
+
+              {/* UAC Access Control Class */}
+              <ListGroup.Item>
+                <strong>UAC Access Control Class:</strong> Normal Class: {profile.uacAcc.normalClass || 'N/A'}
+                <div className="mt-2">
+                  {['class11', 'class12', 'class13', 'class14', 'class15'].map((cls) => (
+                    <Badge
+                      bg={profile.uacAcc[cls] ? 'success' : 'danger'}
+                      key={cls}
+                      className="me-1"
+                    >
+                      {cls.toUpperCase()}
+                    </Badge>
+                  )) || 'N/A'}
+                </div>
+              </ListGroup.Item>
+            </ListGroup>
           </div>
-        ))}
-      </div>
+        </Collapse>
+      </ListGroup.Item>
 
-      {/* DefaultSlice */}
-      <div>
-        <h4>Default Slices</h4>
-        {profile.defaultSlice?.map((slice, index) => (
-          <div key={index}>
-            <p>
-              <strong>Slice {index + 1}</strong>
-            </p>
-            <p>
-              <strong>SST:</strong> {slice.sst}
-            </p>
-            <p>
-              <strong>SD:</strong> {slice.sd}
-            </p>
-          </div>
-        ))}
-      </div>
+      {/* Edit Form */}
+      {isEditing && (
+        <UEProfileForm
+          selectedProfile={profile}
+          onClose={handleFormClose}
+          onSubmit={handleFormSubmit}
+        />
+      )}
 
-      {/* Routing Indicator */}
-      <p>
-        <strong>Routing Indicator:</strong> {profile.routingIndicator}
-      </p>
-
-      {/* Home Network Keys */}
-      <p>
-        <strong>Home Network Private Key:</strong> {profile.homeNetworkPrivateKey}
-      </p>
-      <p>
-        <strong>Home Network Public Key:</strong> {profile.homeNetworkPublicKey}
-      </p>
-      <p>
-        <strong>Home Network Public Key ID:</strong> {profile.homeNetworkPublicKeyId}
-      </p>
-
-      {/* Protection Scheme */}
-      <p>
-        <strong>Protection Scheme:</strong> {profile.protectionScheme}
-      </p>
-
-      {/* Key and OP */}
-      <p>
-        <strong>Key:</strong> {profile.key}
-      </p>
-      <p>
-        <strong>OP:</strong> {profile.op}
-      </p>
-      <p>
-        <strong>OP Type:</strong> {profile.opType}
-      </p>
-
-      {/* AMF */}
-      <p>
-        <strong>AMF:</strong> {profile.amf}
-      </p>
-
-      {/* IMEI and IMEISV */}
-      <p>
-        <strong>IMEI:</strong> {profile.imei}
-      </p>
-      <p>
-        <strong>IMEISV:</strong> {profile.imeisv}
-      </p>
-
-      {/* GNB Search List */}
-      <div>
-        <h4>GNB Search List</h4>
-        {profile.gnbSearchList?.map((gnb, index) => (
-          <p key={index}>{gnb}</p>
-        ))}
-      </div>
-
-      {/* Integrity Algorithms */}
-      <div>
-        <h4>Integrity Algorithms</h4>
-        <p>IA1: {profile.integrity?.IA1 ? 'Enabled' : 'Disabled'}</p>
-        <p>IA2: {profile.integrity?.IA2 ? 'Enabled' : 'Disabled'}</p>
-        <p>IA3: {profile.integrity?.IA3 ? 'Enabled' : 'Disabled'}</p>
-      </div>
-
-      {/* Ciphering Algorithms */}
-      <div>
-        <h4>Ciphering Algorithms</h4>
-        <p>EA1: {profile.ciphering?.EA1 ? 'Enabled' : 'Disabled'}</p>
-        <p>EA2: {profile.ciphering?.EA2 ? 'Enabled' : 'Disabled'}</p>
-        <p>EA3: {profile.ciphering?.EA3 ? 'Enabled' : 'Disabled'}</p>
-      </div>
-
-      {/* Profiles */}
-      <div>
-        <h4>Profiles</h4>
-        {profile.profiles?.map((prof, index) => (
-          <div key={index}>
-            <p>
-              <strong>Profile {index + 1}</strong>
-            </p>
-            <p>
-              <strong>Scheme:</strong> {prof.scheme}
-            </p>
-            <p>
-              <strong>Private Key:</strong> {prof.privateKey}
-            </p>
-            <p>
-              <strong>Public Key:</strong> {prof.publicKey}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* UAC Access Identities Configuration */}
-      <div>
-        <h4>UAC Access Identities Configuration</h4>
-        <p>MPS: {profile.uacAic?.mps ? 'Enabled' : 'Disabled'}</p>
-        <p>MCS: {profile.uacAic?.mcs ? 'Enabled' : 'Disabled'}</p>
-      </div>
-
-      {/* UAC Access Control Class */}
-      <div>
-        <h4>UAC Access Control Class</h4>
-        <p>Normal Class: {profile.uacAcc?.normalClass}</p>
-        <p>Class11: {profile.uacAcc?.class11 ? 'Enabled' : 'Disabled'}</p>
-        <p>Class12: {profile.uacAcc?.class12 ? 'Enabled' : 'Disabled'}</p>
-        <p>Class13: {profile.uacAcc?.class13 ? 'Enabled' : 'Disabled'}</p>
-        <p>Class14: {profile.uacAcc?.class14 ? 'Enabled' : 'Disabled'}</p>
-        <p>Class15: {profile.uacAcc?.class15 ? 'Enabled' : 'Disabled'}</p>
-      </div>
-
-      {/* Sessions */}
-      <div>
-        <h4>Sessions</h4>
-        {profile.sessions?.map((session, index) => (
-          <div key={index}>
-            <p>
-              <strong>Session {index + 1}</strong>
-            </p>
-            <p>
-              <strong>Type:</strong> {session.type}
-            </p>
-            <p>
-              <strong>APN:</strong> {session.apn}
-            </p>
-            {/* Slice within Session */}
-            <div>
-              <h5>Slice</h5>
-              <p>
-                <strong>SST:</strong> {session.slice.sst}
-              </p>
-              <p>
-                <strong>SD:</strong> {session.slice.sd}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Integrity Max Rate */}
-      <div>
-        <h4>Integrity Max Rate</h4>
-        <p>Uplink: {profile.integrityMaxRate?.uplink}</p>
-        <p>Downlink: {profile.integrityMaxRate?.downlink}</p>
-      </div>
-
-      {/* Action Buttons */}
-      <button onClick={() => onEdit(profile)}>Edit</button>
-      <button onClick={() => onDelete(profile.supi)}>Delete</button>
-    </div>
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        show={showDeleteModal}
+        handleClose={handleCloseModal}
+        handleConfirm={handleConfirmDelete}
+        supi={profile.supi}
+      />
+    </>
   );
 }
+
+UEProfileItem.propTypes = {
+  profile: PropTypes.object.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  refreshProfiles: PropTypes.func.isRequired,
+};
 
 export default UEProfileItem;

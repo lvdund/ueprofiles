@@ -1,3 +1,4 @@
+// main.go
 package main
 
 import (
@@ -11,16 +12,22 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
-	// Load config
+
+	// Load configuration
 	mongoConfig, serverConfig, appConfig := config.LoadConfig()
 
 	// Connect to MongoDB
 	db, err := database.Connect(mongoConfig)
 	if err != nil {
-		log.Fatalf("failed to connect to MongoDB: %v", err)
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
 	defer func() {
 		if err = db.Client().Disconnect(context.TODO()); err != nil {
@@ -81,32 +88,64 @@ func main() {
 			EA2: true,
 			EA3: true,
 		},
+		UacAic: models.UacAic{
+			Mps: false,
+			Mcs: false,
+		},
+		UacAcc: models.UacAcc{
+			NormalClass: 0,
+			Class11:     false,
+			Class12:     false,
+			Class13:     false,
+			Class14:     false,
+			Class15:     false,
+		},
 		IntegrityMaxRate: models.IntegrityMaxRate{
 			Uplink:   "full",
 			Downlink: "full",
 		},
-		// Add other necessary configuration fields (if needed)
-
 	}
 
 	// Create Operator
 	operator := utils.NewOperator(operatorConfig)
 
-	// Initialize services
+	// Initialize Services
 	ueProfileService := services.NewUeProfileService(db, operator)
 	userService := services.NewUserService(db)
 
-	// Initialize API
+	// Initialize API Handlers
 	ueProfileAPI := api.NewUeProfileAPI(ueProfileService)
 	userAPI := api.NewUserAPI(userService, appConfig.JWTSecret)
 
-	// Initialize router
+	// Initialize Router with CORS configuration
 	router := router.SetupRouter(ueProfileAPI, userAPI, userService, serverConfig, appConfig.JWTSecret)
 
-	// Run web server
+	// Create Unique Index on 'supi' field to prevent duplicates
+	createUniqueIndex(db)
+
+	// Run the server
 	err = router.Run(fmt.Sprintf(":%d", serverConfig.Port))
 	if err != nil {
-		log.Fatalf("failed to run web server: %v", err)
+		log.Fatalf("Failed to run server: %v", err)
 	}
 	fmt.Println("JWT Secret in main.go:", appConfig.JWTSecret)
+}
+
+// createUniqueIndex ensures that the 'supi' field in 'ue_profiles' collection is unique
+func createUniqueIndex(db *mongo.Database) {
+	collection := db.Collection("ue_profiles")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	indexModel := mongo.IndexModel{
+		Keys:    bson.M{"supi": 1}, // index in ascending order
+		Options: options.Index().SetUnique(true),
+	}
+
+	_, err := collection.Indexes().CreateOne(ctx, indexModel)
+	if err != nil {
+		log.Fatalf("Failed to create unique index on 'supi': %v", err)
+	} else {
+		log.Println("Successfully created unique index on 'supi'")
+	}
 }

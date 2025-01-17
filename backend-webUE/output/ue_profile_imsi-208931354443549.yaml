@@ -1,0 +1,57 @@
+id: "000000000000000000000000"
+userid: "000000000000000000000000"
+supi: imsi-208931354443549
+suci: suci-0-20-893-0-2-2-0272DA71976234CE833A6907425867B82E074D44EF907DFB4B3E21C1C2256EBCD1-0242b034950ee2b865d9a54c37b5940face7c08dcb7b401fbcf5479e805d3a3cb9dde7b2cce831bfc32144ff2d0b
+plmnid:
+    mcc: "208"
+    mnc: "93"
+configuredslice:
+    - sst: 2
+      sd: "040506"
+defaultslice:
+    - sst: 0
+      sd: "010203"
+routingindicator: "0000"
+homenetworkprivatekey: F1AB1074477EBCC7F554EA1C5FC368B1616730155E0041AC447D6301975FECDA
+homenetworkpublickey: 0272DA71976234CE833A6907425867B82E074D44EF907DFB4B3E21C1C2256EBCD1
+homenetworkpublickeyid: 2
+protectionscheme: 2
+key: 37606f9537046b4261e92db12032018a
+keypair: {}
+op: 15acbe4c467f7b884f78190f67568f47
+optype: OPC
+amf: ""
+imei: "953807732699387"
+imeisv: "5055751429356694"
+gnbsearchlist:
+    - 10.0.0.2
+integrity:
+    ia1: true
+    ia2: true
+    ia3: true
+ciphering:
+    ea1: true
+    ea2: true
+    ea3: true
+profiles: []
+uacaic:
+    mps: true
+    mcs: true
+uacacc:
+    normalclass: 1
+    class11: false
+    class12: false
+    class13: false
+    class14: false
+    class15: false
+sessions:
+    - type: IPv4
+      apn: internet
+      slice:
+        sst: 1
+        sd: "0x010203"
+integritymaxrate:
+    uplink: full
+    downlink: full
+createdat: 2025-01-15T00:10:05.6238711+07:00
+updatedat: 0001-01-01T00:00:00Z

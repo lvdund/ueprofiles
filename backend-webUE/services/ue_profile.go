@@ -1,176 +1,116 @@
+// services/ue_profile.go
 package services
 
 import (
 	"backend-webUE/models"
 	"backend-webUE/utils"
 	"context"
-	"errors"
-	"fmt"
+	"log"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+// UeProfileService provides methods to interact with UE Profiles in the database
 type UeProfileService struct {
-	db       *mongo.Database
-	operator *utils.Operator
+	collection *mongo.Collection
+	operator   *utils.Operator
 }
 
+// NewUeProfileService creates a new UeProfileService
 func NewUeProfileService(db *mongo.Database, operator *utils.Operator) *UeProfileService {
 	return &UeProfileService{
-		db:       db,
-		operator: operator,
+		collection: db.Collection("ue_profiles"),
+		operator:   operator,
 	}
 }
 
-// GenerateUeProfiles generates and inserts multiple UE profiles into the database
-func (s *UeProfileService) GenerateUeProfiles(ctx context.Context, userID primitive.ObjectID, num int) ([]models.UeProfile, error) {
-	collection := s.db.Collection("ue_profiles")
-
-	var ueProfiles []models.UeProfile
-	var docs []interface{}
-
-	for i := 0; i < num; i++ {
-		ueProfile := s.operator.GenerateUe()
-		if ueProfile == nil {
-			// Skip invalid UE profiles
-			continue
-		}
-		ueProfile.UserID = userID // Assign the user ID
-
-		ueProfiles = append(ueProfiles, *ueProfile)
-		docs = append(docs, ueProfile)
-
-		// Export each profile to YAML
-		yamlPath := fmt.Sprintf("./uegen/%s.yaml", ueProfile.Supi)
-		if err := utils.ExportYAML(yamlPath, ueProfile); err != nil {
-			fmt.Printf("Failed to export UE profile to YAML: %v\n", err)
-		}
-	}
-
-	// Check if no valid UE profiles were generated
-	if len(docs) == 0 {
-		return nil, fmt.Errorf("no valid UE profiles were generated")
-	}
-
-	// Use InsertMany for batch insertion
-	_, err := collection.InsertMany(ctx, docs)
+// InsertUEProfile inserts a single UE Profile into the database
+func (s *UeProfileService) InsertUEProfile(ue *models.UeProfile) error {
+	_, err := s.collection.InsertOne(context.Background(), ue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to insert UE profiles: %v", err)
+		log.Printf("Error inserting UE Profile: %v", err)
+		return err
 	}
-
-	return ueProfiles, nil
+	return nil
 }
 
-// CreateUeProfiles inserts multiple UE profiles into the database
-func (s *UeProfileService) CreateUeProfiles(ctx context.Context, userID primitive.ObjectID, ueProfiles []models.UeProfile) error {
-	collection := s.db.Collection("ue_profiles")
-
-	// Assign userID to each profile
-	for i := range ueProfiles {
-		ueProfiles[i].UserID = userID
-	}
-
-	// Convert to interface slice
+// InsertUEProfiles inserts multiple UE Profiles into the database
+func (s *UeProfileService) InsertUEProfiles(profiles []models.UeProfile) error {
 	var docs []interface{}
-	for _, profile := range ueProfiles {
+	for _, profile := range profiles {
 		docs = append(docs, profile)
-
-		// Export each profile to YAML
-		yamlPath := fmt.Sprintf("./uegen/%s.yaml", profile.Supi)
-		if err := utils.ExportYAML(yamlPath, profile); err != nil {
-			fmt.Printf("Failed to export UE profile to YAML: %v\n", err)
-		}
 	}
-
-	// Use InsertMany for batch insertion
-	_, err := collection.InsertMany(ctx, docs)
+	_, err := s.collection.InsertMany(context.Background(), docs)
 	if err != nil {
-		return fmt.Errorf("failed to insert UE profiles: %v", err)
+		log.Printf("Error inserting multiple UE Profiles: %v", err)
+		return err
 	}
-
 	return nil
 }
 
-func (s *UeProfileService) GetUeProfiles(ctx context.Context, userID primitive.ObjectID) ([]models.UeProfile, error) {
-	collection := s.db.Collection("ue_profiles")
-
-	// Filter by UserID
-	filter := bson.M{"userId": userID}
-	cursor, err := collection.Find(ctx, filter)
+// GetAllUEProfiles retrieves all UE Profiles from the database
+func (s *UeProfileService) GetAllUEProfiles() ([]models.UeProfile, error) {
+	cursor, err := s.collection.Find(context.Background(), bson.M{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get UE profiles: %v", err)
+		log.Printf("Error fetching UE Profiles: %v", err)
+		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer cursor.Close(context.Background())
 
-	var ueProfiles []models.UeProfile
-	if err = cursor.All(ctx, &ueProfiles); err != nil {
-		return nil, fmt.Errorf("failed to decode UE profiles: %v", err)
-	}
-	return ueProfiles, nil
-}
-
-// GetUeProfile retrieves a specific UE profile by SUPI
-func (s *UeProfileService) GetUeProfile(ctx context.Context, userID primitive.ObjectID, supi string) (*models.UeProfile, error) {
-	collection := s.db.Collection("ue_profiles")
-
-	// Filter by UserID and SUPI
-	filter := bson.M{
-		"userId": userID,
-		"supi":   supi,
-	}
-	var ueProfile models.UeProfile
-	err := collection.FindOne(ctx, filter).Decode(&ueProfile)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, nil
+	var profiles []models.UeProfile
+	for cursor.Next(context.Background()) {
+		var profile models.UeProfile
+		if err := cursor.Decode(&profile); err != nil {
+			log.Printf("Error decoding UE Profile: %v", err)
+			return nil, err
 		}
-		return nil, fmt.Errorf("failed to get UE profile: %v", err)
+		profiles = append(profiles, profile)
 	}
-	return &ueProfile, nil
+
+	if err := cursor.Err(); err != nil {
+		log.Printf("Cursor error: %v", err)
+		return nil, err
+	}
+
+	return profiles, nil
 }
 
-// UpdateUeProfile updates an existing UE profile
-func (s *UeProfileService) UpdateUeProfile(ctx context.Context, userID primitive.ObjectID, supi string, updatedFields map[string]interface{}) error {
-	collection := s.db.Collection("ue_profiles")
+// UpdateUeProfile updates an existing UE Profile based on SUPI
+func (s *UeProfileService) UpdateUeProfile(supi string, ue *models.UeProfile) error {
+	// Ensure that supi is not overwritten
+	ue.Supi = supi
 
-	// Ensure UserID matches
-	filter := bson.M{
-		"userId": userID,
-		"supi":   supi,
+	update := bson.M{
+		"$set": ue,
 	}
 
-	// Perform the update
-	result, err := collection.UpdateOne(ctx, filter, bson.M{"$set": updatedFields})
+	result, err := s.collection.UpdateOne(context.Background(), bson.M{"supi": supi}, update)
 	if err != nil {
-		return fmt.Errorf("failed to update UE profile: %v", err)
+		log.Printf("Error updating UE Profile: %v", err)
+		return err
 	}
+
 	if result.MatchedCount == 0 {
-		return fmt.Errorf("UE profile not found")
+		log.Printf("No UE Profile found with SUPI: %s", supi)
+		return mongo.ErrNoDocuments
 	}
+
 	return nil
 }
 
-// DeleteUeProfile deletes a UE profile
-func (s *UeProfileService) DeleteUeProfile(ctx context.Context, userID primitive.ObjectID, supi string) error {
-	collection := s.db.Collection("ue_profiles")
-
-	// Ensure UserID matches
-	filter := bson.M{
-		"userId": userID,
-		"supi":   supi,
-	}
-	result, err := collection.DeleteOne(ctx, filter)
+// DeleteUeProfile deletes a UE Profile based on SUPI
+func (s *UeProfileService) DeleteUeProfile(supi string) error {
+	result, err := s.collection.DeleteOne(context.Background(), bson.M{"supi": supi})
 	if err != nil {
-		return fmt.Errorf("failed to delete UE profile: %v", err)
+		log.Printf("Error deleting UE Profile: %v", err)
+		return err
 	}
-	if result.DeletedCount == 0 {
-		return fmt.Errorf("UE profile not found")
-	}
-	return nil
-}
 
-func buildYAMLFilename(userID primitive.ObjectID, suffix string) string {
-	return fmt.Sprintf("ueprofiles_%s_%s.yaml", userID.Hex(), suffix)
+	if result.DeletedCount == 0 {
+		log.Printf("No UE Profile found with SUPI: %s", supi)
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
 }

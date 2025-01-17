@@ -13,12 +13,12 @@ type UeProfile struct {
 	UserID primitive.ObjectID `json:"userId,omitempty" bson:"userId,omitempty"`
 
 	// IMSI number of the UE. IMSI = [MCC|MNC|MSISDN]
-	Supi string `json:"supi" bson:"supi"`
+	Supi string `json:"supi,omitempty" bson:"supi"`
 	Suci string `json:"suci" bson:"suci"`
 
-	PlmnId          PlmnId   `json:"plmnid" bson:"plmnid"`
-	ConfiguredSlice []Snssai `json:"configuredSlice" bson:"configuredSlice"`
-	DefaultSlice    []Snssai `json:"defaultSlice" bson:"defaultSlice"`
+	PlmnId            PlmnId   `json:"plmnid" bson:"plmnid"`
+	UeConfiguredNssai []Snssai `json:"ueconfiguredNssai" bson:"ueconfiguredNssai"`
+	UeDefaultNssai    []Snssai `json:"uedefaultNssai" bson:"uedefaultNssai"`
 
 	RoutingIndicator      string `json:"routingIndicator" bson:"routingIndicator"`
 	HomeNetworkPrivateKey string `json:"homeNetworkPrivateKey" bson:"homeNetworkPrivateKey"`
@@ -29,12 +29,13 @@ type UeProfile struct {
 
 	//Permanent subscription key
 	Key     string      `json:"key" bson:"key"`
-	KeyPair supi.X25519 `bson:"_"`
+	KeyPair supi.X25519 `bson:"-"`
+
 	// Operator code (OP or OPC) of the UE
 	Op     string `json:"op" bson:"op"`
 	OpType string `json:"opType" bson:"opType"`
 	// Authentication Management Field (AMF) value
-	Amf string `json:"amf" bson:"amf"`
+	Amf string `json:"amf" bson:"amf" yaml:"amf"`
 
 	Imei   string `json:"imei" bson:"imei"`
 	Imeisv string `json:"imeiSv" bson:"imeiSv"`
@@ -55,6 +56,9 @@ type UeProfile struct {
 	Sessions []Sessions `json:"sessions" bson:"sessions"`
 
 	IntegrityMaxRate IntegrityMaxRate `json:"integrityMaxRate" bson:"integrityMaxRate"`
+
+	CreatedAt time.Time `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+	UpdatedAt time.Time `json:"updatedAt,omitempty" bson:"updatedAt,omitempty"`
 }
 
 type PlmnId struct {
